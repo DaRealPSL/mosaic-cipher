@@ -1,4 +1,6 @@
 #include "mosaic.h"
+#include "xor_key.h"
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -144,7 +146,7 @@ size_t mosaic_encode(const uint8_t *in, size_t in_len, char *out, size_t out_cap
       out[o++] = rotated[digits[i]];
     }
 
-    /* optional: insert noise char 50% chance */
+    /* insert noise char 50% chance */
     if(rand() & 1){
       out[o++] = noise_char();
     }
@@ -208,7 +210,7 @@ size_t mosaic_decode(const char *in, size_t in_len, uint8_t *out, size_t out_cap
       return o;
     }
 
-    /* prepare rotated alphabet for this block (deterministic: uses block_index only) */
+    /* prepare rotated alphabet for this block */
     char rotated[48];
     int rot = rotation_for_block(block_index);
     rotate_alphabet(rotated, P->alphabet, BASE, rot);
@@ -263,28 +265,53 @@ size_t mosaic_decode(const char *in, size_t in_len, uint8_t *out, size_t out_cap
 
 /* ---------------- CLI-friendly wrappers ---------------- */
 
-char* mosaic_encrypt(const char *plaintext){
-  if(!plaintext) return NULL;
+char* mosaic_encrypt(const char *plaintext, const char *key){
+  if(!plaintext || !key) return NULL;
+
   size_t in_len = strlen(plaintext);
-  size_t cap = mosaic_encode((const uint8_t*)plaintext, in_len, NULL, 0);
-  if(cap == (size_t)-1) return NULL;
-  char *out = (char*)malloc(cap + 1);
-  if(!out) return NULL;
-  size_t wrote = mosaic_encode((const uint8_t*)plaintext, in_len, out, cap);
+
+  // copy input into buffer we can mutate
+  uint8_t *buf = malloc(in_len + 1);
+  if(!buf) return NULL;
+  memcpy(buf, plaintext, in_len);
+  buf[in_len] = '\0';
+
+  // XOR with key
+  xor_with_key(buf, in_len, key);
+
+  // encode XORed buffer
+  size_t cap = mosaic_encode(buf, in_len, NULL, 0);
+  if(cap == (size_t)-1){ free(buf); return NULL; }
+
+  char *out = malloc(cap + 1);
+  if(!out){ free(buf); return NULL; }
+
+  size_t wrote = mosaic_encode(buf, in_len, out, cap);
+  free(buf);
   if(wrote == (size_t)-1){ free(out); return NULL; }
+
   out[wrote] = '\0';
   return out;
 }
 
-char* mosaic_decrypt(const char *ciphertext){
-  if(!ciphertext) return NULL;
+char* mosaic_decrypt(const char *ciphertext, const char *key){
+  if(!ciphertext || !key) return NULL;
+
   size_t in_len = strlen(ciphertext);
+  
+  // decode ciphertext first.
   size_t cap = mosaic_decode(ciphertext, in_len, NULL, 0);
-  if(cap == (size_t)-1) return NULL;
-  uint8_t *buf = (uint8_t*)malloc(cap + 1);
+  if (cap == (size_t)-1) return NULL;
+
+  uint8_t *buf = malloc(cap + 1);
   if(!buf) return NULL;
+
   size_t wrote = mosaic_decode(ciphertext, in_len, buf, cap);
-  if(wrote == (size_t)-1){ free(buf); return NULL; }
+  if(wrote == (size_t)-1){ free(buf); return NULL; };
   buf[wrote] = '\0';
-  return (char*)buf;
+
+  // XOR with key to get back the plaintext
+  xor_with_key(buf, wrote, key);
+
+  return (char*)buf; // already null terminated
 }
