@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Usage: node mosaic_decode.js "<ciphertext>" "<key>"
+// Usage: node decrypt.js "<ciphertext>" "<key>"
 // If key omitted -> uses "default-key" to match the CLI fallback.
 
 const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*_-?";
