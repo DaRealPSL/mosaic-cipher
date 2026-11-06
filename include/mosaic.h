@@ -24,8 +24,8 @@ size_t mosaic_decode(const char *in, size_t in_len, uint8_t *out, size_t out_cap
 const mosaic_params* mosaic_get_params(void);
 
 // CLI-friendly wrappers
-char* mosaic_encrypt(const char *plaintext); // returns malloced string
-char* mosaic_decrypt(const char *ciphertext); // returns malloced string
+char* mosaic_encrypt(const char *plaintext, const char *key); // returns malloced string
+char* mosaic_decrypt(const char *ciphertext, const char *key); // returns malloced string
 
 #ifdef __cplusplus
 }
